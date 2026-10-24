@@ -19,7 +19,7 @@
     if (!left) return fn();
     list.forEach(g => {
       const s = document.createElement("script");
-      s.src = C.GRADES[g].file;
+      s.src = C.GRADES[g].file + "?v=20261024b";
       s.onload = () => { if (--left === 0) fn(); };
       s.onerror = () => { document.body.insertAdjacentHTML("afterbegin", '<div class="wrap"><div class="note bad">Ma’lumot yuklanmadi. Internetni tekshirib, sahifani yangilang.</div></div>'); };
       document.head.appendChild(s);

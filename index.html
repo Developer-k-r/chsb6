@@ -6,7 +6,7 @@
 <title>CHSB-1 Onlayn Test</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20261024b">
 <style>
 .top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:2px solid var(--line)}
 .top .in{max-width:860px;margin:0 auto;padding:8px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px));display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -33,8 +33,8 @@
 window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["\\[","\\]"]]},svg:{fontCache:"global"},startup:{typeset:false}};
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
-<script src="config.js"></script>
-<script src="common.js"></script>
+<script src="config.js?v=20261024b"></script>
+<script src="common.js?v=20261024b"></script>
 <script>
 const GRADE = CHSB.grade(new URLSearchParams(location.search).get("g"));
 CHSB.boot(GRADE, function(){

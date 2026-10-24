@@ -1,4 +1,5 @@
 /* Katak daftar ustidagi kartochkalar; telefon uchun bitta ustun, keng ekranda markazda */
+[hidden]{display:none!important}
 :root{
   --bg:#f3f5f1; --grid:rgba(60,90,160,.09); --surface:#ffffff; --ink:#1b2231; --muted:#5f6880;
   --line:#d6dbe4; --accent:#2747c9; --accent-ink:#ffffff; --ok:#167c45; --ok-bg:#dff3e7;
