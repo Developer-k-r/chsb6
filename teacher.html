@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CHSB-1 O‘qituvchi Paneli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+.grid2{display:grid;align-items:start;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.stat{background:var(--bg);border-radius:12px;padding:10px 12px}
+.stat b{display:block;font-family:var(--f-mono);font-size:1.6em;line-height:1.1}
+.stat span{font-size:.8em;color:var(--muted)}
+.qrow{display:grid;grid-template-columns:2.4em minmax(0,1fr) 3.4em;gap:8px;align-items:center;font-size:.88em}
+.qrow .n{font-weight:700;font-family:var(--f-mono)}
+.qrow .p{font-family:var(--f-mono);font-weight:700;text-align:right}
+.qrow .t{display:block;font-size:.85em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar i.lo{background:var(--bad)} .bar i.mid{background:var(--warn)} .bar i.hi{background:var(--ok)}
+.tablewrap{overflow-x:auto}
+table.st{border-collapse:collapse;width:100%;font-size:.9em;font-variant-numeric:tabular-nums}
+table.st th,table.st td{padding:6px 8px;border-bottom:1.5px solid var(--line);text-align:left;white-space:nowrap}
+table.st th{font-size:.8em;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+table.st tr.click{cursor:pointer} table.st tr.click:hover td{background:var(--bg)}
+table.st td.num{text-align:right;font-family:var(--f-mono)}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-family:var(--f-mono);font-size:.78em;padding:2px 6px;border-radius:6px;background:var(--ok-bg);color:var(--ok);font-weight:700}
+.chip.bad{background:var(--bad-bg);color:var(--bad)}
+.parts{display:flex;flex-wrap:wrap;gap:8px}
+.parts label{display:flex;gap:6px;align-items:center;border:2px solid var(--line);border-radius:10px;padding:4px 10px;cursor:pointer}
+.link{font-family:var(--f-mono);font-size:.82em;word-break:break-all;background:var(--bg);border-radius:10px;padding:10px}
+</style>
+</head>
+<body>
+<div class="wrap wide" id="app">
+  <div><span class="eyebrow">6-sinf · Matematika · CHSB-1</span><h1>O‘qituvchi paneli</h1></div>
+
+  <div class="grid2">
+    <section class="card" aria-labelledby="h-link">
+      <h2 id="h-link">Test havolasi</h2>
+      <div class="field"><label for="nom">Test nomi</label><input id="nom" maxlength="50" value="CHSB-1 demo test"></div>
+      <span class="eyebrow" style="letter-spacing:.04em;text-transform:none;font-size:.85em;color:var(--ink)">Qismlar</span>
+      <div class="parts" id="parts"></div>
+      <div class="row">
+        <div class="field" style="flex:0 1 160px"><label for="mins">Vaqt (daqiqa)</label><input id="mins" inputmode="numeric"></div>
+        <label class="row" style="gap:6px;align-self:flex-end;padding-bottom:8px"><input type="checkbox" id="sol" checked> Yakunda yechimlarni ko‘rsatish</label>
+      </div>
+      <div class="link" id="lnk"></div>
+      <div class="row"><button class="btn primary" id="copy">Havolani nusxalash</button><a class="btn" id="open" target="_blank" rel="noopener">Ochib ko‘rish</a><span id="cmsg" class="muted"></span></div>
+      <span class="muted" style="font-size:.85em">Har bir o‘quvchiga har savoldan tasodifiy test tushadi: yonma-yon o‘tirganlarda sonlar har xil bo‘ladi.</span>
+    </section>
+
+    <section class="card" aria-labelledby="h-res">
+      <h2 id="h-res">Natijalarni yuklash</h2>
+      <div class="field"><label for="key">O‘qituvchi kaliti</label><input id="key" type="password" autocomplete="current-password" placeholder="Google skriptdagi KEY"></div>
+      <div class="row"><button class="btn primary" id="load">Natijalarni yuklash</button><span id="lmsg" class="muted"></span></div>
+      <div class="row">
+        <div class="field"><label for="ft">Test</label><select id="ft"></select></div>
+        <div class="field"><label for="fc">Sinf</label><select id="fc"></select></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" id="sum" hidden></section>
+  <div class="grid2" id="bys" hidden>
+    <section class="card" id="byq"></section>
+    <section class="card" id="byp"></section>
+  </div>
+  <section class="card" id="stu" hidden></section>
+</div>
+
+<script>
+</script>
+<script src="config.js"></script>
+<script src="data.js"></script>
+<script src="common.js"></script>
+<script>
+(function(){
+const Q = CHSB.load().questions, CFG = window.CHSB_CONFIG || {}, esc = CHSB.esc, LET = "ABCD";
+const $ = s => document.querySelector(s);
+const fmt = v => String(v).replace(".", ",");
+const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+/* ---------- havola ---------- */
+const parts = [1,2,3,4,5];
+$("#parts").innerHTML = parts.map(p => `<label><input type="checkbox" value="${p}" checked> ${p}-qism <span class="muted">(${(p-1)*5+1}–${p*5})</span></label>`).join("");
+let minsTouched = false;
+function selQs() { return [...document.querySelectorAll("#parts input:checked")].map(i => +i.value).flatMap(p => [1,2,3,4,5].map(k => (p-1)*5+k)); }
+function qsStr(list) {
+  const pr = [...new Set(list.map(n => Math.ceil(n/5)))];
+  if (pr.length === 5) return "1-25";
+  return pr.map(p => `${(p-1)*5+1}-${p*5}`).join(",");
+}
+function updLink() {
+  const list = selQs();
+  if (!minsTouched) $("#mins").value = Math.round(list.reduce((a, n) => a + Q[n].seconds, 0) / 60);
+  const base = location.href.replace(/[^/]*([?#].*)?$/, "") + "index.html";
+  const p = new URLSearchParams();
+  p.set("q", qsStr(list));
+  const nom = $("#nom").value.trim(); if (nom) p.set("nom", nom);
+  p.set("t", $("#mins").value || "0");
+  if (!$("#sol").checked) p.set("s", "0");
+  p.set("id", (nom || "test").toLowerCase().replace(/[^a-z0-9‘’'-]+/gi, "-").slice(0, 30) + "-" + qsStr(list).replace(/,/g, "_"));
+  const url = list.length ? base + "?" + p.toString() : "";
+  $("#lnk").textContent = url || "Kamida bitta qismni tanlang.";
+  $("#open").href = url || "#";
+  $("#copy").disabled = !url;
+}
+document.querySelectorAll("#parts input,#sol").forEach(i => i.onchange = updLink);
+$("#nom").oninput = updLink;
+$("#mins").oninput = () => { minsTouched = true; $("#mins").value = $("#mins").value.replace(/\D/g, "").slice(0, 3); updLink(); };
+$("#copy").onclick = async () => {
+  const t = $("#lnk").textContent;
+  try { await navigator.clipboard.writeText(t); $("#cmsg").textContent = "Nusxalandi."; }
+  catch (e) { const r = document.createRange(); r.selectNodeContents($("#lnk")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $("#cmsg").textContent = "Belgilandi — nusxalang."; }
+};
+updLink();
+
+/* ---------- natijalar ---------- */
+let ROWS = [];
+$("#key").value = ls.get("chsb-key") || "";
+if (!CFG.endpoint) $("#lmsg").textContent = "config.js da endpoint ko‘rsatilmagan.";
+$("#load").onclick = async () => {
+  if (!CFG.endpoint) return;
+  const key = $("#key").value.trim(); ls.set("chsb-key", key);
+  $("#lmsg").textContent = "Yuklanmoqda…";
+  try {
+    const r = await fetch(CFG.endpoint + "?key=" + encodeURIComponent(key));
+    const j = await r.json();
+    if (!j.ok) { $("#lmsg").textContent = j.error === "key" ? "Kalit noto‘g‘ri." : "Xato: " + (j.error || "noma’lum"); return; }
+    ROWS = j.rows.filter(x => x && x.items);
+    $("#lmsg").textContent = `${ROWS.length} ta natija yuklandi.`;
+    fillFilters(); render();
+  } catch (e) { $("#lmsg").textContent = "Ulanib bo‘lmadi. Internet va skript manzilini tekshiring."; }
+};
+function fillFilters() {
+  const tests = [...new Set(ROWS.map(r => r.test))];
+  const last = ls.get("chsb-ft");
+  $("#ft").innerHTML = tests.map(t => `<option ${t === last ? "selected" : ""}>${esc(t)}</option>`).join("");
+  fillCls();
+}
+function fillCls() {
+  const t = $("#ft").value;
+  const cls = [...new Set(ROWS.filter(r => r.test === t).map(r => r.cls))].sort();
+  $("#fc").innerHTML = `<option value="">Barcha sinflar</option>` + cls.map(c => `<option>${esc(c)}</option>`).join("");
+}
+$("#ft").onchange = () => { ls.set("chsb-ft", $("#ft").value); fillCls(); render(); };
+$("#fc").onchange = render;
+
+function stats(rows) {
+  const per = {};
+  rows.forEach(r => r.items.forEach(it => { const s = per[it.n] = per[it.n] || { ok: 0, all: 0 }; s.all++; if (it.ok) s.ok++; }));
+  const qp = n => per[n] && per[n].all ? per[n].ok / per[n].all * 100 : null;
+  const wp = list => { let s = 0, w = 0; list.forEach(n => { const v = qp(n); if (v !== null) { s += v * Q[n].ball; w += Q[n].ball; } }); return w ? s / w : null; };
+  return { per, qp, wp };
+}
+const cls3 = v => v === null ? "" : v < 50 ? "lo" : v < 75 ? "mid" : "hi";
+const pc = v => v === null ? "—" : Math.round(v) + "%";
+
+function render() {
+  const t = $("#ft").value, c = $("#fc").value;
+  const rows = ROWS.filter(r => r.test === t && (!c || r.cls === c));
+  ["#sum", "#bys", "#stu"].forEach(s => $(s).hidden = !rows.length);
+  if (!rows.length) return;
+  const { per, qp, wp } = stats(rows);
+  const qsAll = Object.keys(per).map(Number).sort((a, b) => a - b);
+  const avg = rows.reduce((a, r) => a + r.score, 0) / rows.length, max = rows[0].max;
+  const hard = qsAll.filter(n => qp(n) !== null).sort((a, b) => qp(a) - qp(b)).slice(0, 5);
+  $("#sum").innerHTML = `<h2>${esc(t)}${c ? " · " + esc(c) : ""}</h2>
+    <div class="stats">
+      <div class="stat"><b>${rows.length}</b><span>qatnashgan o‘quvchi</span></div>
+      <div class="stat"><b>${fmt(Math.round(avg * 10) / 10)}</b><span>o‘rtacha ball / ${fmt(max)}</span></div>
+      <div class="stat"><b>${pc(wp(qsAll))}</b><span>umumiy o‘zlashtirish</span></div>
+      <div class="stat"><b>${rows.filter(r => r.score / r.max >= .6).length}</b><span>60% va undan yuqori</span></div>
+    </div>
+    <div><span class="eyebrow">Eng qiyin savollar</span><div class="chips" style="margin-top:6px">${hard.map(n => `<span class="chip bad">${n}-savol · ${pc(qp(n))}</span>`).join("")}</div></div>`;
+  $("#byq").innerHTML = `<h2>Savollar bo‘yicha</h2>` + qsAll.map(n => { const v = qp(n);
+    return `<div class="qrow"><span class="n">${n}.</span><span><span class="bar"><i class="${cls3(v)}" style="width:${v || 0}%"></i></span><span class="t">${esc(Q[n].topic)} · ${per[n].ok}/${per[n].all}</span></span><span class="p">${pc(v)}</span></div>`; }).join("");
+  const prts = [...new Set(qsAll.map(n => Math.ceil(n / 5)))];
+  $("#byp").innerHTML = `<h2>Qismlar bo‘yicha</h2>` + prts.map(p => { const list = qsAll.filter(n => Math.ceil(n / 5) === p), v = wp(list);
+    return `<div class="qrow"><span class="n">${p}</span><span><span class="bar"><i class="${cls3(v)}" style="width:${v || 0}%"></i></span><span class="t">${list[0]}–${list[list.length - 1]}-savollar</span></span><span class="p">${pc(v)}</span></div>`; }).join("") +
+    `<span class="muted" style="font-size:.82em">Qism va umumiy foizlar savollar balliga mutanosib (B 1,2 · Q 1,5 · M 2,5).</span>`;
+  const sorted = rows.slice().sort((a, b) => b.score - a.score);
+  $("#stu").innerHTML = `<h2>O‘quvchilar</h2><div class="tablewrap"><table class="st"><thead><tr><th>#</th><th>O‘quvchi</th><th>Sinf</th><th>Ball</th><th>%</th><th>Vaqt</th><th>Sana</th></tr></thead><tbody>` +
+    sorted.map((r, i) => `<tr class="click" data-i="${i}"><td>${i + 1}</td><td>${esc(r.name)}${r.timeout ? ' <span class="tag" style="color:var(--warn)">vaqt tugagan</span>' : ""}</td><td>${esc(r.cls)}</td><td class="num">${fmt(r.score)}</td><td class="num">${Math.round(r.score / r.max * 100)}%</td><td class="num">${CHSB.mmss(r.seconds)}</td><td>${new Date(r.time || r.finished).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td></tr>
+      <tr hidden data-d="${i}"><td colspan="7"><div class="chips">${r.items.map(it => { const p = Q[it.n] && Q[it.n].problems && Q[it.n].problems[it.p];
+        const right = p ? LET[p.answer] : "?"; const got = it.a === null ? "—" : LET[it.a];
+        return `<span class="chip${it.ok ? "" : " bad"}" title="To‘g‘ri javob: ${right}">${it.n}: ${got}${it.ok ? "" : "→" + right}</span>`; }).join("")}</div></td></tr>`).join("") +
+    `</tbody></table></div><span class="muted" style="font-size:.82em">Qatorni bosing: har savol bo‘yicha o‘quvchi javobi (xato bo‘lsa, → to‘g‘ri javob).</span>`;
+  document.querySelectorAll("#stu tr.click").forEach(tr => tr.onclick = () => { const d = document.querySelector(`#stu tr[data-d="${tr.dataset.i}"]`); d.hidden = !d.hidden; });
+}
+})();
+</script>
+</body>
+</html>

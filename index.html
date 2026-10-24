@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CHSB-1 Onlayn Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:2px solid var(--line)}
+.top .in{max-width:860px;margin:0 auto;padding:8px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px));display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.top .who{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.timer{font-family:var(--f-mono);font-weight:700;font-size:1.25em;padding:2px 10px;border-radius:10px;border:2px solid var(--line);background:var(--surface);font-variant-numeric:tabular-nums}
+.timer.low{color:var(--warn);border-color:var(--warn)}
+.timer.over{color:#fff;background:var(--bad);border-color:var(--bad)}
+.qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:6px}
+.qn{height:40px;border-radius:10px;border:2px solid var(--line);background:var(--surface);font-weight:700;font-family:var(--f-mono)}
+.qn.done{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.qn.cur{outline:3px solid var(--c4);outline-offset:1px}
+.qn.ok{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.qn.bad{background:var(--bad);border-color:var(--bad);color:var(--surface)}
+.qhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.qhead .no{font-family:var(--f-display);font-size:1.5em;font-weight:700}
+.navrow{display:flex;gap:10px;justify-content:space-between;align-items:center}
+.score{font-family:var(--f-mono);font-weight:700;font-size:2.6em;line-height:1}
+.confirm{border:2px solid var(--warn);background:var(--warn-bg)}
+</style>
+</head>
+<body>
+<div id="app"><div class="wrap"><p class="muted">Yuklanmoqda…</p></div></div>
+<script>
+window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["\\[","\\]"]]},svg:{fontCache:"global"},startup:{typeset:false}};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<script src="config.js"></script>
+<script src="data.js"></script>
+<script src="common.js"></script>
+<script>
+(function(){
+const DATA = CHSB.load();
+const Q = DATA.questions;
+const CFG = window.CHSB_CONFIG || {};
+const P = new URLSearchParams(location.search);
+const qs = CHSB.parseQs(P.get("q") || "1-25").filter(n => Q[n] && Q[n].problems);
+const TEST = (P.get("id") || ("chsb-" + (P.get("q") || "1-25"))).slice(0, 60);
+const TITLE = P.get("nom") || "CHSB-1 demo test";
+const SHOW_SOL = P.get("s") !== "0";
+const LIMIT = (P.get("t") ? Math.round(parseFloat(P.get("t")) * 60) : qs.reduce((a, n) => a + Q[n].seconds, 0));
+const MAX = qs.reduce((a, n) => a + Q[n].ball, 0);
+const KEY = "chsb-online:" + TEST;
+const LET = "ABCD";
+const app = document.getElementById("app");
+const esc = CHSB.esc;
+let S = null;
+try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+let tick = null;
+
+function start() {
+  if (!qs.length) { app.innerHTML = `<div class="wrap"><div class="note bad">Havolada savollar noto‘g‘ri ko‘rsatilgan. O‘qituvchingizdan yangi havola so‘rang.</div></div>`; return; }
+  if (S && S.submitted) return result();
+  if (S && S.started) return test();
+  welcome();
+}
+
+function welcome() {
+  const mins = Math.round(LIMIT / 60);
+  app.innerHTML = `<div class="wrap">
+    <div><span class="eyebrow">6-sinf · Matematika</span><h1>${esc(TITLE)}</h1></div>
+    <div class="card">
+      <div class="row"><span class="tag">${qs.length} ta savol</span><span class="tag">${String(MAX).replace(".", ",")} ball</span><span class="tag">${mins} daqiqa</span></div>
+      <p class="muted" style="margin:0">Har bir savolga bitta javobni belgilang. Javobni yakunlagunga qadar o‘zgartirish mumkin. Vaqt tugaganda test o‘zi yakunlanadi.</p>
+      <form id="f" class="row" autocomplete="off">
+        <div class="field"><label for="nm">Ism va familiya</label><input id="nm" required maxlength="60" placeholder="Masalan: Aliyev Bekzod"></div>
+        <div class="field" style="flex:0 1 140px"><label for="cl">Sinf</label><input id="cl" required maxlength="10" placeholder="6-A"></div>
+        <button class="btn primary" style="align-self:flex-end">Testni boshlash</button>
+      </form>
+      ${CFG.endpoint ? "" : `<div class="note">Natijalarni yuborish manzili sozlanmagan: natija faqat shu telefonda ko‘rinadi.</div>`}
+    </div></div>`;
+  app.querySelector("#f").onsubmit = e => {
+    e.preventDefault();
+    const name = app.querySelector("#nm").value.trim(), cls = app.querySelector("#cl").value.trim().toUpperCase();
+    if (!name || !cls) return;
+    const picks = {};
+    qs.forEach(n => { picks[n] = 2 + Math.floor(Math.random() * 10); });
+    S = { id: CHSB.uid(), test: TEST, name, cls, picks, answers: {}, cur: 0, started: Date.now(), submitted: false, sent: false };
+    save(); test();
+  };
+}
+
+function left() { return LIMIT - Math.floor((Date.now() - S.started) / 1000); }
+
+function test() {
+  const n = qs[S.cur], p = Q[n].problems[S.picks[n]], a = S.answers[n];
+  const done = qs.filter(k => S.answers[k] !== undefined).length;
+  app.innerHTML = `
+  <div class="top"><div class="in"><span class="who">${esc(S.name)} · ${esc(S.cls)}</span><span class="muted mono">${done}/${qs.length}</span><span class="timer" id="tm">--:--</span></div></div>
+  <div class="wrap">
+    <div class="card">
+      <div class="qhead"><span class="no">${S.cur + 1}-savol</span><span class="muted">${String(Q[n].ball).replace(".", ",")} ball</span></div>
+      <div class="ptext">${p.text}</div>${p.figure ? `<div class="figbox">${p.figure}</div>` : ""}
+      <div class="opts">${p.options.map((o, i) => `<button class="opt${a === i ? " sel" : ""}" data-o="${i}"><span class="L">${LET[i]}</span><span>${o}</span></button>`).join("")}</div>
+      <div class="navrow"><button class="btn" id="pv" ${S.cur === 0 ? "disabled" : ""}>← Oldingi</button>
+        ${S.cur < qs.length - 1 ? `<button class="btn primary" id="nx">Keyingi →</button>` : `<button class="btn primary" id="fin">Yakunlash</button>`}</div>
+    </div>
+    <div class="card"><span class="eyebrow">Savollar</span>
+      <div class="qgrid">${qs.map((k, i) => `<button class="qn${S.answers[k] !== undefined ? " done" : ""}${i === S.cur ? " cur" : ""}" data-i="${i}" aria-label="${i + 1}-savol">${i + 1}</button>`).join("")}</div>
+      <div id="cf"><button class="btn" id="fin2">Testni yakunlash</button></div>
+    </div>
+  </div>`;
+  app.querySelectorAll(".opt").forEach(b => b.onclick = () => { S.answers[n] = +b.dataset.o; save(); test(); });
+  const pv = app.querySelector("#pv"); if (pv) pv.onclick = () => { S.cur--; save(); test(); scrollTo(0, 0); };
+  const nx = app.querySelector("#nx"); if (nx) nx.onclick = () => { S.cur++; save(); test(); scrollTo(0, 0); };
+  app.querySelectorAll(".qn").forEach(b => b.onclick = () => { S.cur = +b.dataset.i; save(); test(); scrollTo(0, 0); });
+  const ask = () => {
+    const miss = qs.length - qs.filter(k => S.answers[k] !== undefined).length;
+    const cf = app.querySelector("#cf");
+    cf.innerHTML = `<div class="note confirm" style="display:flex;flex-direction:column;gap:8px">
+      <b>${miss ? `${miss} ta savolga javob berilmagan.` : "Barcha savollarga javob berildi."} Testni yakunlaysizmi?</b>
+      <span class="muted">Yakunlangandan keyin javoblarni o‘zgartirib bo‘lmaydi.</span>
+      <div class="row"><button class="btn primary" id="yes">Ha, yakunlash</button><button class="btn" id="no">Davom etish</button></div></div>`;
+    cf.querySelector("#yes").onclick = () => submit(false);
+    cf.querySelector("#no").onclick = () => test();
+    cf.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+  const f1 = app.querySelector("#fin"); if (f1) f1.onclick = ask;
+  app.querySelector("#fin2").onclick = ask;
+  runTimer();
+  CHSB.typeset(app);
+}
+
+function runTimer() {
+  if (tick) clearInterval(tick);
+  const draw = () => {
+    const el = document.getElementById("tm"); if (!el) return;
+    const l = left();
+    el.textContent = CHSB.mmss(Math.max(0, l));
+    el.classList.toggle("low", l <= 300 && l > 0);
+    el.classList.toggle("over", l <= 0);
+    if (l <= 0 && !S.submitted) { clearInterval(tick); submit(true); }
+  };
+  draw(); tick = setInterval(draw, 1000);
+}
+
+function grade() {
+  let score = 0;
+  const items = qs.map(n => {
+    const p = Q[n].problems[S.picks[n]], a = S.answers[n];
+    const ok = a !== undefined && a === p.answer;
+    if (ok) score += Q[n].ball;
+    return { n, p: S.picks[n], a: a === undefined ? null : a, ok };
+  });
+  return { score: Math.round(score * 10) / 10, items };
+}
+
+function submit(timeout) {
+  if (tick) clearInterval(tick);
+  const g = grade();
+  S.submitted = true; S.timeout = !!timeout;
+  S.finished = Date.now();
+  S.result = g; save();
+  result();
+}
+
+async function send() {
+  if (!CFG.endpoint || S.sent) return;
+  const payload = { id: S.id, test: S.test, name: S.name, cls: S.cls, started: S.started, finished: S.finished,
+    seconds: Math.round((S.finished - S.started) / 1000), score: S.result.score, max: MAX, items: S.result.items, timeout: S.timeout };
+  setSend("sending");
+  try {
+    const r = await fetch(CFG.endpoint, { method: "POST", body: JSON.stringify(payload) });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "xato");
+    S.sent = true; save(); setSend("ok");
+  } catch (e) {
+    try {
+      await fetch(CFG.endpoint, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
+      S.sent = true; save(); setSend("ok");
+    } catch (e2) { setSend("fail"); }
+  }
+}
+function setSend(st) {
+  const el = document.getElementById("snd"); if (!el) return;
+  if (st === "sending") { el.className = "note"; el.textContent = "Natija o‘qituvchiga yuborilmoqda…"; }
+  if (st === "ok") { el.className = "note ok"; el.textContent = "Natija o‘qituvchiga yuborildi."; }
+  if (st === "fail") {
+    el.className = "note bad";
+    el.innerHTML = `Natija yuborilmadi: internet aloqasini tekshiring. <button class="btn" id="rs">Qayta yuborish</button>`;
+    el.querySelector("#rs").onclick = send;
+  }
+}
+
+function result(openN) {
+  const g = S.result, pc = Math.round(g.score / MAX * 100);
+  const nOk = g.items.filter(i => i.ok).length;
+  app.innerHTML = `<div class="wrap">
+    <div><span class="eyebrow">${esc(TITLE)}</span><h1>${esc(S.name)} · ${esc(S.cls)}</h1></div>
+    <div class="card">
+      ${S.timeout ? `<div class="note">Vaqt tugadi, test avtomatik yakunlandi.</div>` : ""}
+      <div class="row" style="align-items:baseline"><span class="score">${String(g.score).replace(".", ",")}</span><span class="muted">/ ${String(MAX).replace(".", ",")} ball · ${pc}%</span></div>
+      <div class="bar"><i style="width:${pc}%"></i></div>
+      <span>To‘g‘ri javoblar: <b>${nOk}</b> / ${qs.length}</span>
+      <div id="snd" class="note">${CFG.endpoint ? (S.sent ? "Natija o‘qituvchiga yuborildi." : "…") : "Natija faqat shu telefonda saqlandi."}</div>
+    </div>
+    <div class="card"><span class="eyebrow">Savollar bo‘yicha</span>
+      <div class="qgrid">${g.items.map((it, i) => `<button class="qn ${it.ok ? "ok" : "bad"}${openN === i ? " cur" : ""}" data-i="${i}">${i + 1}</button>`).join("")}</div>
+      <span class="muted" style="font-size:.85em">${SHOW_SOL ? "Savol raqamini bosib, javobingiz va yechimni ko‘ring." : "Yashil — to‘g‘ri, qizil — noto‘g‘ri."}</span>
+    </div>
+    <div id="det"></div>
+  </div>`;
+  if (CFG.endpoint && !S.sent) send(); else if (S.sent) setSend("ok");
+  app.querySelectorAll(".qn").forEach(b => b.onclick = () => SHOW_SOL && detail(+b.dataset.i));
+  if (openN !== undefined) detail(openN);
+}
+
+function detail(i) {
+  const it = S.result.items[i], p = Q[it.n].problems[it.p];
+  const det = document.getElementById("det");
+  app.querySelectorAll(".qn").forEach(b => b.classList.toggle("cur", +b.dataset.i === i));
+  det.innerHTML = `<div class="card"><div class="qhead"><span class="no">${i + 1}-savol</span>
+      <span class="tag" style="color:${it.ok ? "var(--ok)" : "var(--bad)"}">${it.ok ? "To‘g‘ri" : it.a === null ? "Javob berilmagan" : "Noto‘g‘ri"}</span></div>
+    <div class="ptext">${p.text}</div>${p.figure ? `<div class="figbox">${p.figure}</div>` : ""}
+    <div class="opts">${p.options.map((o, k) => `<div class="opt${k === p.answer ? " ok" : k === it.a ? " bad" : ""}"><span class="L">${LET[k]}</span><span>${o}</span></div>`).join("")}</div>
+    <span class="eyebrow">Yechim</span><ol class="steps">${p.steps.map(s => `<li><span>${s}</span></li>`).join("")}</ol></div>`;
+  CHSB.typeset(det);
+  det.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+start();
+})();
+</script>
+</body>
+</html>
