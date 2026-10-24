@@ -39,7 +39,10 @@ table.st td.num{text-align:right;font-family:var(--f-mono)}
   <div class="grid2">
     <section class="card" aria-labelledby="h-link">
       <h2 id="h-link">Test havolasi</h2>
-      <div class="field"><label for="nom">Test nomi</label><input id="nom" maxlength="50" value="CHSB-1 demo test"></div>
+      <div class="row">
+        <div class="field"><label for="nom">Test nomi</label><input id="nom" maxlength="50" value="CHSB-1 demo test"></div>
+        <div class="field" style="flex:0 1 140px"><label for="sinf">Sinf</label><input id="sinf" maxlength="10" placeholder="6-A" autocomplete="off"></div>
+      </div>
       <span class="eyebrow" style="letter-spacing:.04em;text-transform:none;font-size:.85em;color:var(--ink)">Qismlar</span>
       <div class="parts" id="parts"></div>
       <div class="row">
@@ -48,7 +51,7 @@ table.st td.num{text-align:right;font-family:var(--f-mono)}
       </div>
       <div class="link" id="lnk"></div>
       <div class="row"><button class="btn primary" id="copy">Havolani nusxalash</button><a class="btn" id="open" target="_blank" rel="noopener">Ochib ko‘rish</a><span id="cmsg" class="muted"></span></div>
-      <span class="muted" style="font-size:.85em">Har bir o‘quvchiga har savoldan tasodifiy test tushadi: yonma-yon o‘tirganlarda sonlar har xil bo‘ladi.</span>
+      <span class="muted" style="font-size:.85em">Har bir sinf uchun alohida havola yarating: o‘quvchi sinfni o‘zgartira olmaydi. Har bir o‘quvchiga har savoldan tasodifiy test tushadi: yonma-yon o‘tirganlarda sonlar har xil bo‘ladi.</span>
     </section>
 
     <section class="card" aria-labelledby="h-res">
@@ -99,16 +102,21 @@ function updLink() {
   const p = new URLSearchParams();
   p.set("q", qsStr(list));
   const nom = $("#nom").value.trim(); if (nom) p.set("nom", nom);
+  const sinf = $("#sinf").value.trim().toUpperCase().replace(/\s+/g, "");
+  p.set("sinf", sinf);
   p.set("t", $("#mins").value || "0");
   if (!$("#sol").checked) p.set("s", "0");
   p.set("id", (nom || "test").toLowerCase().replace(/[^a-z0-9‘’'-]+/gi, "-").slice(0, 30) + "-" + qsStr(list).replace(/,/g, "_"));
-  const url = list.length ? base + "?" + p.toString() : "";
-  $("#lnk").textContent = url || "Kamida bitta qismni tanlang.";
+  const url = list.length && sinf ? base + "?" + p.toString() : "";
+  $("#lnk").textContent = url || (!sinf ? "Sinfni yozing (masalan 6-A): havola faqat shu sinf uchun yaratiladi." : "Kamida bitta qismni tanlang.");
+  ls.set("chsb-sinf", $("#sinf").value);
   $("#open").href = url || "#";
   $("#copy").disabled = !url;
 }
 document.querySelectorAll("#parts input,#sol").forEach(i => i.onchange = updLink);
 $("#nom").oninput = updLink;
+$("#sinf").value = ls.get("chsb-sinf") || "";
+$("#sinf").oninput = updLink;
 $("#mins").oninput = () => { minsTouched = true; $("#mins").value = $("#mins").value.replace(/\D/g, "").slice(0, 3); updLink(); };
 $("#copy").onclick = async () => {
   const t = $("#lnk").textContent;
