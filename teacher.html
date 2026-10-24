@@ -34,13 +34,14 @@ table.st td.num{text-align:right;font-family:var(--f-mono)}
 </head>
 <body>
 <div class="wrap wide" id="app">
-  <div><span class="eyebrow">6-sinf · Matematika · CHSB-1</span><h1>O‘qituvchi paneli</h1></div>
+  <div><span class="eyebrow">Matematika · CHSB-1</span><h1>O‘qituvchi paneli</h1></div>
 
   <div class="grid2">
     <section class="card" aria-labelledby="h-link">
       <h2 id="h-link">Test havolasi</h2>
       <div class="row">
         <div class="field"><label for="nom">Test nomi</label><input id="nom" maxlength="50" value="CHSB-1 demo test"></div>
+        <div class="field" style="flex:0 1 110px"><label for="grade">Sinf bosqichi</label><select id="grade"><option value="6">6-sinf</option><option value="7">7-sinf</option></select></div>
         <div class="field" style="flex:0 1 140px"><label for="sinf">Sinf</label><input id="sinf" maxlength="10" placeholder="6-A" autocomplete="off"></div>
       </div>
       <span class="eyebrow" style="letter-spacing:.04em;text-transform:none;font-size:.85em;color:var(--ink)">Qismlar</span>
@@ -76,44 +77,57 @@ table.st td.num{text-align:right;font-family:var(--f-mono)}
 <script>
 </script>
 <script src="config.js"></script>
-<script src="data.js"></script>
 <script src="common.js"></script>
 <script>
-(function(){
-const Q = CHSB.load().questions, CFG = window.CHSB_CONFIG || {}, esc = CHSB.esc, LET = "ABCD";
+CHSB.boot([6, 7], function(){
+let G = 6, Q = CHSB.load(6).questions, RQ = Q;
+const CFG = window.CHSB_CONFIG || {}, esc = CHSB.esc, LET = "ABCD";
 const $ = s => document.querySelector(s);
 const fmt = v => String(v).replace(".", ",");
 const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 
 /* ---------- havola ---------- */
-const parts = [1,2,3,4,5];
-$("#parts").innerHTML = parts.map(p => `<label><input type="checkbox" value="${p}" checked> ${p}-qism <span class="muted">(${(p-1)*5+1}–${p*5})</span></label>`).join("");
 let minsTouched = false;
-function selQs() { return [...document.querySelectorAll("#parts input:checked")].map(i => +i.value).flatMap(p => [1,2,3,4,5].map(k => (p-1)*5+k)); }
+const NQ = () => Object.keys(Q).length;
+function drawParts() {
+  const parts = Array.from({ length: Math.ceil(NQ() / 5) }, (_, i) => i + 1);
+  $("#parts").innerHTML = parts.map(p => `<label><input type="checkbox" value="${p}" checked> ${p}-qism <span class="muted">(${(p-1)*5+1}–${Math.min(p*5, NQ())})</span></label>`).join("");
+  document.querySelectorAll("#parts input").forEach(i => i.onchange = updLink);
+}
+function setGrade(g) {
+  G = CHSB.grade(g); Q = CHSB.load(G).questions; minsTouched = false;
+  $("#grade").value = String(G); ls.set("chsb-grade", G);
+  $("#nom").value = $("#nom").value || "CHSB-1 demo test";
+  $("#sinf").placeholder = G + "-A";
+  drawParts(); updLink();
+}
+function selQs() { return [...document.querySelectorAll("#parts input:checked")].map(i => +i.value).flatMap(p => [1,2,3,4,5].map(k => (p-1)*5+k)).filter(n => Q[n]); }
 function qsStr(list) {
   const pr = [...new Set(list.map(n => Math.ceil(n/5)))];
-  if (pr.length === 5) return "1-25";
-  return pr.map(p => `${(p-1)*5+1}-${p*5}`).join(",");
+  if (pr.length === Math.ceil(NQ() / 5)) return "1-" + NQ();
+  return pr.map(p => `${(p-1)*5+1}-${Math.min(p*5, NQ())}`).join(",");
 }
 function updLink() {
   const list = selQs();
   if (!minsTouched) $("#mins").value = Math.round(list.reduce((a, n) => a + Q[n].seconds, 0) / 60);
   const base = location.href.replace(/[^/]*([?#].*)?$/, "") + "index.html";
   const p = new URLSearchParams();
+  if (G === 7) p.set("g", "7");
   p.set("q", qsStr(list));
   const nom = $("#nom").value.trim(); if (nom) p.set("nom", nom);
   const sinf = $("#sinf").value.trim().toUpperCase().replace(/\s+/g, "");
   p.set("sinf", sinf);
   p.set("t", $("#mins").value || "0");
   if (!$("#sol").checked) p.set("s", "0");
-  p.set("id", (nom || "test").toLowerCase().replace(/[^a-z0-9‘’'-]+/gi, "-").slice(0, 30) + "-" + qsStr(list).replace(/,/g, "_"));
+  p.set("id", (G === 7 ? "7s-" : "") + (nom || "test").toLowerCase().replace(/[^a-z0-9‘’'-]+/gi, "-").slice(0, 30) + "-" + qsStr(list).replace(/,/g, "_"));
   const url = list.length && sinf ? base + "?" + p.toString() : "";
-  $("#lnk").textContent = url || (!sinf ? "Sinfni yozing (masalan 6-A): havola faqat shu sinf uchun yaratiladi." : "Kamida bitta qismni tanlang.");
+  $("#lnk").textContent = url || (!sinf ? "Sinfni yozing (masalan " + G + "-A): havola faqat shu sinf uchun yaratiladi." : "Kamida bitta qismni tanlang.");
   ls.set("chsb-sinf", $("#sinf").value);
   $("#open").href = url || "#";
   $("#copy").disabled = !url;
 }
-document.querySelectorAll("#parts input,#sol").forEach(i => i.onchange = updLink);
+$("#sol").onchange = updLink;
+$("#grade").onchange = () => setGrade($("#grade").value);
 $("#nom").oninput = updLink;
 $("#sinf").value = ls.get("chsb-sinf") || "";
 $("#sinf").oninput = updLink;
@@ -123,7 +137,7 @@ $("#copy").onclick = async () => {
   try { await navigator.clipboard.writeText(t); $("#cmsg").textContent = "Nusxalandi."; }
   catch (e) { const r = document.createRange(); r.selectNodeContents($("#lnk")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $("#cmsg").textContent = "Belgilandi — nusxalang."; }
 };
-updLink();
+setGrade(ls.get("chsb-grade") || 6);
 
 /* ---------- natijalar ---------- */
 let ROWS = [];
@@ -145,7 +159,7 @@ $("#load").onclick = async () => {
 function fillFilters() {
   const tests = [...new Set(ROWS.map(r => r.test))];
   const last = ls.get("chsb-ft");
-  $("#ft").innerHTML = tests.map(t => `<option ${t === last ? "selected" : ""}>${esc(t)}</option>`).join("");
+  $("#ft").innerHTML = tests.map(t => `<option value="${esc(t)}" ${t === last ? "selected" : ""}>${CHSB.gradeOfTest(t)}-sinf · ${esc(t.replace(/^7s-/, ""))}</option>`).join("");
   fillCls();
 }
 function fillCls() {
@@ -160,7 +174,7 @@ function stats(rows) {
   const per = {};
   rows.forEach(r => r.items.forEach(it => { const s = per[it.n] = per[it.n] || { ok: 0, all: 0 }; s.all++; if (it.ok) s.ok++; }));
   const qp = n => per[n] && per[n].all ? per[n].ok / per[n].all * 100 : null;
-  const wp = list => { let s = 0, w = 0; list.forEach(n => { const v = qp(n); if (v !== null) { s += v * Q[n].ball; w += Q[n].ball; } }); return w ? s / w : null; };
+  const wp = list => { let s = 0, w = 0; list.forEach(n => { const v = qp(n); if (v !== null) { s += v * RQ[n].ball; w += RQ[n].ball; } }); return w ? s / w : null; };
   return { per, qp, wp };
 }
 const cls3 = v => v === null ? "" : v < 50 ? "lo" : v < 75 ? "mid" : "hi";
@@ -168,6 +182,7 @@ const pc = v => v === null ? "—" : Math.round(v) + "%";
 
 function render() {
   const t = $("#ft").value, c = $("#fc").value;
+  RQ = CHSB.load(CHSB.gradeOfTest(t)).questions;
   const rows = ROWS.filter(r => r.test === t && (!c || r.cls === c));
   ["#sum", "#bys", "#stu"].forEach(s => $(s).hidden = !rows.length);
   if (!rows.length) return;
@@ -175,7 +190,7 @@ function render() {
   const qsAll = Object.keys(per).map(Number).sort((a, b) => a - b);
   const avg = rows.reduce((a, r) => a + r.score, 0) / rows.length, max = rows[0].max;
   const hard = qsAll.filter(n => qp(n) !== null).sort((a, b) => qp(a) - qp(b)).slice(0, 5);
-  $("#sum").innerHTML = `<h2>${esc(t)}${c ? " · " + esc(c) : ""}</h2>
+  $("#sum").innerHTML = `<h2>${CHSB.gradeOfTest(t)}-sinf · ${esc(t.replace(/^7s-/, ""))}${c ? " · " + esc(c) : ""}</h2>
     <div class="stats">
       <div class="stat"><b>${rows.length}</b><span>qatnashgan o‘quvchi</span></div>
       <div class="stat"><b>${fmt(Math.round(avg * 10) / 10)}</b><span>o‘rtacha ball / ${fmt(max)}</span></div>
@@ -184,21 +199,21 @@ function render() {
     </div>
     <div><span class="eyebrow">Eng qiyin savollar</span><div class="chips" style="margin-top:6px">${hard.map(n => `<span class="chip bad">${n}-savol · ${pc(qp(n))}</span>`).join("")}</div></div>`;
   $("#byq").innerHTML = `<h2>Savollar bo‘yicha</h2>` + qsAll.map(n => { const v = qp(n);
-    return `<div class="qrow"><span class="n">${n}.</span><span><span class="bar"><i class="${cls3(v)}" style="width:${v || 0}%"></i></span><span class="t">${esc(Q[n].topic)} · ${per[n].ok}/${per[n].all}</span></span><span class="p">${pc(v)}</span></div>`; }).join("");
+    return `<div class="qrow"><span class="n">${n}.</span><span><span class="bar"><i class="${cls3(v)}" style="width:${v || 0}%"></i></span><span class="t">${esc(RQ[n].topic)} · ${per[n].ok}/${per[n].all}</span></span><span class="p">${pc(v)}</span></div>`; }).join("");
   const prts = [...new Set(qsAll.map(n => Math.ceil(n / 5)))];
   $("#byp").innerHTML = `<h2>Qismlar bo‘yicha</h2>` + prts.map(p => { const list = qsAll.filter(n => Math.ceil(n / 5) === p), v = wp(list);
     return `<div class="qrow"><span class="n">${p}</span><span><span class="bar"><i class="${cls3(v)}" style="width:${v || 0}%"></i></span><span class="t">${list[0]}–${list[list.length - 1]}-savollar</span></span><span class="p">${pc(v)}</span></div>`; }).join("") +
-    `<span class="muted" style="font-size:.82em">Qism va umumiy foizlar savollar balliga mutanosib (B 1,2 · Q 1,5 · M 2,5).</span>`;
+    `<span class="muted" style="font-size:.82em">Qism va umumiy foizlar savollar balliga mutanosib (qiyin savol ko‘proq hisobga olinadi).</span>`;
   const sorted = rows.slice().sort((a, b) => b.score - a.score);
   $("#stu").innerHTML = `<h2>O‘quvchilar</h2><div class="tablewrap"><table class="st"><thead><tr><th>#</th><th>O‘quvchi</th><th>Sinf</th><th>Ball</th><th>%</th><th>Vaqt</th><th>Sana</th></tr></thead><tbody>` +
     sorted.map((r, i) => `<tr class="click" data-i="${i}"><td>${i + 1}</td><td>${esc(r.name)}${r.timeout ? ' <span class="tag" style="color:var(--warn)">vaqt tugagan</span>' : ""}</td><td>${esc(r.cls)}</td><td class="num">${fmt(r.score)}</td><td class="num">${Math.round(r.score / r.max * 100)}%</td><td class="num">${CHSB.mmss(r.seconds)}</td><td>${new Date(r.time || r.finished).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td></tr>
-      <tr hidden data-d="${i}"><td colspan="7"><div class="chips">${r.items.map(it => { const p = Q[it.n] && Q[it.n].problems && Q[it.n].problems[it.p];
+      <tr hidden data-d="${i}"><td colspan="7"><div class="chips">${r.items.map(it => { const p = RQ[it.n] && RQ[it.n].problems && RQ[it.n].problems[it.p];
         const right = p ? LET[p.answer] : "?"; const got = it.a === null ? "—" : LET[it.a];
         return `<span class="chip${it.ok ? "" : " bad"}" title="To‘g‘ri javob: ${right}">${it.n}: ${got}${it.ok ? "" : "→" + right}</span>`; }).join("")}</div></td></tr>`).join("") +
     `</tbody></table></div><span class="muted" style="font-size:.82em">Qatorni bosing: har savol bo‘yicha o‘quvchi javobi (xato bo‘lsa, → to‘g‘ri javob).</span>`;
   document.querySelectorAll("#stu tr.click").forEach(tr => tr.onclick = () => { const d = document.querySelector(`#stu tr[data-d="${tr.dataset.i}"]`); d.hidden = !d.hidden; });
 }
-})();
+});
 </script>
 </body>
 </html>

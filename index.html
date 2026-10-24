@@ -34,16 +34,17 @@ window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["\\[","\\]"]]},svg
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
 <script src="config.js"></script>
-<script src="data.js"></script>
 <script src="common.js"></script>
 <script>
-(function(){
-const DATA = CHSB.load();
+const GRADE = CHSB.grade(new URLSearchParams(location.search).get("g"));
+CHSB.boot(GRADE, function(){
+const DATA = CHSB.load(GRADE);
 const Q = DATA.questions;
+const NQ = Object.keys(Q).length;
 const CFG = window.CHSB_CONFIG || {};
 const P = new URLSearchParams(location.search);
-const qs = CHSB.parseQs(P.get("q") || "1-25").filter(n => Q[n] && Q[n].problems);
-const TEST = (P.get("id") || ("chsb-" + (P.get("q") || "1-25"))).slice(0, 60);
+const qs = CHSB.parseQs(P.get("q") || ("1-" + NQ)).filter(n => Q[n] && Q[n].problems);
+const TEST = (P.get("id") || ((GRADE === 7 ? "7s-" : "") + "chsb-" + (P.get("q") || ("1-" + NQ)))).slice(0, 60);
 const TITLE = P.get("nom") || "CHSB-1 demo test";
 const FIXED_CLS = (P.get("sinf") || "").trim().toUpperCase().slice(0, 10);
 const SHOW_SOL = P.get("s") !== "0";
@@ -68,7 +69,7 @@ function start() {
 function welcome() {
   const mins = Math.round(LIMIT / 60);
   app.innerHTML = `<div class="wrap">
-    <div><span class="eyebrow">6-sinf · Matematika</span><h1>${esc(TITLE)}</h1></div>
+    <div><span class="eyebrow">${GRADE}-sinf · Matematika</span><h1>${esc(TITLE)}</h1></div>
     <div class="card">
       <div class="row"><span class="tag">${qs.length} ta savol</span><span class="tag">${String(MAX).replace(".", ",")} ball</span><span class="tag">${mins} daqiqa</span></div>
       <p class="muted" style="margin:0">Har bir savolga bitta javobni belgilang. Javobni yakunlagunga qadar o‘zgartirish mumkin. Vaqt tugaganda test o‘zi yakunlanadi.</p>
@@ -230,7 +231,7 @@ function detail(i) {
 }
 
 start();
-})();
+});
 </script>
 </body>
 </html>
