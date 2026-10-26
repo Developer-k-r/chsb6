@@ -6,7 +6,7 @@
 <title>CHSB-1 O‘qituvchi Paneli</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
-<link rel="stylesheet" href="style.css?v=20261024b">
+<link rel="stylesheet" href="style.css?v=20261026a">
 <style>
 .grid2{display:grid;align-items:start;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
@@ -38,21 +38,10 @@ table.st td.num{text-align:right;font-family:var(--f-mono)}
 
   <div class="grid2">
     <section class="card" aria-labelledby="h-link">
-      <h2 id="h-link">Test havolasi</h2>
-      <div class="row">
-        <div class="field"><label for="nom">Test nomi</label><input id="nom" maxlength="50" value="CHSB-1 demo test"></div>
-        <div class="field" style="flex:0 1 110px"><label for="grade">Sinf bosqichi</label><select id="grade"><option value="6">6-sinf</option><option value="7">7-sinf</option></select></div>
-        <div class="field" style="flex:0 1 140px"><label for="sinf">Sinf</label><input id="sinf" maxlength="10" placeholder="6-A" autocomplete="off"></div>
-      </div>
-      <span class="eyebrow" style="letter-spacing:.04em;text-transform:none;font-size:.85em;color:var(--ink)">Qismlar</span>
-      <div class="parts" id="parts"></div>
-      <div class="row">
-        <div class="field" style="flex:0 1 160px"><label for="mins">Vaqt (daqiqa)</label><input id="mins" inputmode="numeric"></div>
-        <label class="row" style="gap:6px;align-self:flex-end;padding-bottom:8px"><input type="checkbox" id="sol" checked> Yakunda yechimlarni ko‘rsatish</label>
-      </div>
+      <h2 id="h-link">O‘quvchilar uchun havola</h2>
       <div class="link" id="lnk"></div>
       <div class="row"><button class="btn primary" id="copy">Havolani nusxalash</button><a class="btn" id="open" target="_blank" rel="noopener">Ochib ko‘rish</a><span id="cmsg" class="muted"></span></div>
-      <span class="muted" style="font-size:.85em">Har bir sinf uchun alohida havola yarating: o‘quvchi sinfni o‘zgartira olmaydi. Har bir o‘quvchiga har savoldan tasodifiy test tushadi: yonma-yon o‘tirganlarda sonlar har xil bo‘ladi.</span>
+      <span class="muted" style="font-size:.85em">Bitta havola ikkala sinf uchun. O‘quvchi ismi, sinfi (6 yoki 7) va harfini o‘zi tanlaydi. Vaqt — 90 daqiqa, savollar har safar bazadan tasodifiy tushadi, testni qayta ishlash mumkin.</span>
     </section>
 
     <section class="card" aria-labelledby="h-res">
@@ -63,6 +52,11 @@ table.st td.num{text-align:right;font-family:var(--f-mono)}
         <div class="field"><label for="ft">Test</label><select id="ft"></select></div>
         <div class="field"><label for="fc">Sinf</label><select id="fc"></select></div>
       </div>
+      <div class="field"><label for="fa">Urinishlar</label><select id="fa">
+        <option value="first">Har o‘quvchining birinchi urinishi</option>
+        <option value="best">Har o‘quvchining eng yaxshi urinishi</option>
+        <option value="last">Har o‘quvchining oxirgi urinishi</option>
+        <option value="all">Barcha urinishlar</option></select></div>
     </section>
   </div>
 
@@ -76,8 +70,8 @@ table.st td.num{text-align:right;font-family:var(--f-mono)}
 
 <script>
 </script>
-<script src="config.js?v=20261024b"></script>
-<script src="common.js?v=20261024b"></script>
+<script src="config.js?v=20261026a"></script>
+<script src="common.js?v=20261026a"></script>
 <script>
 CHSB.boot([6, 7], function(){
 let G = 6, Q = CHSB.load(6).questions, RQ = Q;
@@ -87,57 +81,13 @@ const fmt = v => String(v).replace(".", ",");
 const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 
 /* ---------- havola ---------- */
-let minsTouched = false;
-const NQ = () => Object.keys(Q).length;
-function drawParts() {
-  const parts = Array.from({ length: Math.ceil(NQ() / 5) }, (_, i) => i + 1);
-  $("#parts").innerHTML = parts.map(p => `<label><input type="checkbox" value="${p}" checked> ${p}-qism <span class="muted">(${(p-1)*5+1}–${Math.min(p*5, NQ())})</span></label>`).join("");
-  document.querySelectorAll("#parts input").forEach(i => i.onchange = updLink);
-}
-function setGrade(g) {
-  G = CHSB.grade(g); Q = CHSB.load(G).questions; minsTouched = false;
-  $("#grade").value = String(G); ls.set("chsb-grade", G);
-  $("#nom").value = $("#nom").value || "CHSB-1 demo test";
-  $("#sinf").placeholder = G + "-A";
-  drawParts(); updLink();
-}
-function selQs() { return [...document.querySelectorAll("#parts input:checked")].map(i => +i.value).flatMap(p => [1,2,3,4,5].map(k => (p-1)*5+k)).filter(n => Q[n]); }
-function qsStr(list) {
-  const pr = [...new Set(list.map(n => Math.ceil(n/5)))];
-  if (pr.length === Math.ceil(NQ() / 5)) return "1-" + NQ();
-  return pr.map(p => `${(p-1)*5+1}-${Math.min(p*5, NQ())}`).join(",");
-}
-function updLink() {
-  const list = selQs();
-  if (!minsTouched) $("#mins").value = Math.round(list.reduce((a, n) => a + Q[n].seconds, 0) / 60);
-  const base = location.href.replace(/[^/]*([?#].*)?$/, "") + "index.html";
-  const p = new URLSearchParams();
-  if (G === 7) p.set("g", "7");
-  p.set("q", qsStr(list));
-  const nom = $("#nom").value.trim(); if (nom) p.set("nom", nom);
-  const sinf = $("#sinf").value.trim().toUpperCase().replace(/\s+/g, "");
-  p.set("sinf", sinf);
-  p.set("t", $("#mins").value || "0");
-  if (!$("#sol").checked) p.set("s", "0");
-  p.set("id", (G === 7 ? "7s-" : "") + (nom || "test").toLowerCase().replace(/[^a-z0-9‘’'-]+/gi, "-").slice(0, 30) + "-" + qsStr(list).replace(/,/g, "_"));
-  const url = list.length && sinf ? base + "?" + p.toString() : "";
-  $("#lnk").textContent = url || (!sinf ? "Sinfni yozing (masalan " + G + "-A): havola faqat shu sinf uchun yaratiladi." : "Kamida bitta qismni tanlang.");
-  ls.set("chsb-sinf", $("#sinf").value);
-  $("#open").href = url || "#";
-  $("#copy").disabled = !url;
-}
-$("#sol").onchange = updLink;
-$("#grade").onchange = () => setGrade($("#grade").value);
-$("#nom").oninput = updLink;
-$("#sinf").value = ls.get("chsb-sinf") || "";
-$("#sinf").oninput = updLink;
-$("#mins").oninput = () => { minsTouched = true; $("#mins").value = $("#mins").value.replace(/\D/g, "").slice(0, 3); updLink(); };
+const LINK = location.href.replace(/[^/]*([?#].*)?$/, "");
+$("#lnk").textContent = LINK;
+$("#open").href = LINK;
 $("#copy").onclick = async () => {
-  const t = $("#lnk").textContent;
-  try { await navigator.clipboard.writeText(t); $("#cmsg").textContent = "Nusxalandi."; }
+  try { await navigator.clipboard.writeText(LINK); $("#cmsg").textContent = "Nusxalandi."; }
   catch (e) { const r = document.createRange(); r.selectNodeContents($("#lnk")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $("#cmsg").textContent = "Belgilandi — nusxalang."; }
 };
-setGrade(ls.get("chsb-grade") || 6);
 
 /* ---------- natijalar ---------- */
 let ROWS = [];
@@ -159,7 +109,7 @@ $("#load").onclick = async () => {
 function fillFilters() {
   const tests = [...new Set(ROWS.map(r => r.test))];
   const last = ls.get("chsb-ft");
-  $("#ft").innerHTML = tests.map(t => `<option value="${esc(t)}" ${t === last ? "selected" : ""}>${CHSB.gradeOfTest(t)}-sinf · ${esc(t.replace(/^7s-/, ""))}</option>`).join("");
+  $("#ft").innerHTML = tests.map(t => `<option value="${esc(t)}" ${t === last ? "selected" : ""}>${CHSB.gradeOfTest(t)}-sinf · ${/^(7s-)?chsb[67]$/.test(t) ? "mashq testi" : esc(t.replace(/^7s-/, ""))}</option>`).join("");
   fillCls();
 }
 function fillCls() {
@@ -169,6 +119,24 @@ function fillCls() {
 }
 $("#ft").onchange = () => { ls.set("chsb-ft", $("#ft").value); fillCls(); render(); };
 $("#fc").onchange = render;
+$("#fa").value = ls.get("chsb-fa") || "first";
+$("#fa").onchange = () => { ls.set("chsb-fa", $("#fa").value); render(); };
+const who = r => r.test + "|" + String(r.cls).toUpperCase() + "|" + String(r.name).toLowerCase().replace(/\s+/g, " ").trim();
+const tm = r => new Date(r.time || r.finished || 0).getTime();
+function pickAttempts(rows) {
+  const g = {};
+  rows.slice().sort((a, b) => tm(a) - tm(b)).forEach(r => { (g[who(r)] = g[who(r)] || []).push(r); });
+  const out = [];
+  Object.values(g).forEach(list => {
+    list.forEach((r, i) => { r._att = i + 1; r._cnt = list.length; });
+    const mode = $("#fa").value;
+    if (mode === "all") out.push(...list);
+    else if (mode === "last") out.push(list[list.length - 1]);
+    else if (mode === "best") out.push(list.reduce((a, b) => (b.score > a.score ? b : a)));
+    else out.push(list[0]);
+  });
+  return out;
+}
 
 function stats(rows) {
   const per = {};
@@ -183,31 +151,37 @@ const pc = v => v === null ? "—" : Math.round(v) + "%";
 function render() {
   const t = $("#ft").value, c = $("#fc").value;
   RQ = CHSB.load(CHSB.gradeOfTest(t)).questions;
-  const rows = ROWS.filter(r => r.test === t && (!c || r.cls === c));
+  const rows = pickAttempts(ROWS.filter(r => r.test === t && (!c || r.cls === c)));
   ["#sum", "#bys", "#stu"].forEach(s => $(s).hidden = !rows.length);
   if (!rows.length) return;
   const { per, qp, wp } = stats(rows);
   const qsAll = Object.keys(per).map(Number).sort((a, b) => a - b);
   const avg = rows.reduce((a, r) => a + r.score, 0) / rows.length, max = rows[0].max;
+  const subj = rows.map(r => CHSB.subjectScores(RQ, r.items));
+  const subjAvg = (subj[0] || []).map((x, k) => ({ name: x.name, max: x.max, avg: subj.reduce((a, s) => a + ((s[k] && s[k].score) || 0), 0) / rows.length }));
   const hard = qsAll.filter(n => qp(n) !== null).sort((a, b) => qp(a) - qp(b)).slice(0, 5);
-  $("#sum").innerHTML = `<h2>${CHSB.gradeOfTest(t)}-sinf · ${esc(t.replace(/^7s-/, ""))}${c ? " · " + esc(c) : ""}</h2>
+  $("#sum").innerHTML = `<h2>${CHSB.gradeOfTest(t)}-sinf · ${/^(7s-)?chsb[67]$/.test(t) ? "mashq testi" : esc(t.replace(/^7s-/, ""))}${c ? " · " + esc(c) : ""}</h2>
     <div class="stats">
-      <div class="stat"><b>${rows.length}</b><span>qatnashgan o‘quvchi</span></div>
+      <div class="stat"><b>${new Set(rows.map(who)).size}</b><span>qatnashgan o‘quvchi${$("#fa").value === "all" ? " · " + rows.length + " urinish" : ""}</span></div>
       <div class="stat"><b>${fmt(Math.round(avg * 10) / 10)}</b><span>o‘rtacha ball / ${fmt(max)}</span></div>
       <div class="stat"><b>${pc(wp(qsAll))}</b><span>umumiy o‘zlashtirish</span></div>
       <div class="stat"><b>${rows.filter(r => r.score / r.max >= .6).length}</b><span>60% va undan yuqori</span></div>
+      ${subjAvg.map(x => `<div class="stat"><b>${fmt(Math.round(x.avg * 10) / 10)}</b><span>${x.name}: o‘rtacha ball / ${fmt(x.max)}</span></div>`).join("")}
     </div>
     <div><span class="eyebrow">Eng qiyin savollar</span><div class="chips" style="margin-top:6px">${hard.map(n => `<span class="chip bad">${n}-savol · ${pc(qp(n))}</span>`).join("")}</div></div>`;
   $("#byq").innerHTML = `<h2>Savollar bo‘yicha</h2>` + qsAll.map(n => { const v = qp(n);
     return `<div class="qrow"><span class="n">${n}.</span><span><span class="bar"><i class="${cls3(v)}" style="width:${v || 0}%"></i></span><span class="t">${esc(RQ[n].topic)} · ${per[n].ok}/${per[n].all}</span></span><span class="p">${pc(v)}</span></div>`; }).join("");
-  const prts = [...new Set(qsAll.map(n => Math.ceil(n / 5)))];
-  $("#byp").innerHTML = `<h2>Qismlar bo‘yicha</h2>` + prts.map(p => { const list = qsAll.filter(n => Math.ceil(n / 5) === p), v = wp(list);
-    return `<div class="qrow"><span class="n">${p}</span><span><span class="bar"><i class="${cls3(v)}" style="width:${v || 0}%"></i></span><span class="t">${list[0]}–${list[list.length - 1]}-savollar</span></span><span class="p">${pc(v)}</span></div>`; }).join("") +
+  const grp = [];
+  const subjects = [...new Set(qsAll.map(n => RQ[n].subject).filter(Boolean))];
+  subjects.forEach(s => grp.push({ name: s, list: qsAll.filter(n => RQ[n].subject === s), strong: true }));
+  CHSB.parts(CHSB.gradeOfTest(t), RQ).forEach(p => { const list = qsAll.filter(n => n >= p.from && n <= p.to); if (list.length && !grp.some(g => g.list.join() === list.join())) grp.push({ name: p.label + " " + p.from + "–" + p.to, list }); });
+  $("#byp").innerHTML = `<h2>${subjects.length ? "Fanlar va qismlar bo‘yicha" : "Qismlar bo‘yicha"}</h2>` + grp.map(g => { const v = wp(g.list);
+    return `<div class="qrow" style="grid-template-columns:6.5em minmax(0,1fr) 3.4em"><span class="n" style="font-family:var(--f-body)">${g.strong ? "<b>" + g.name + "</b>" : g.name}</span><span><span class="bar"><i class="${cls3(v)}" style="width:${v || 0}%"></i></span><span class="t">${g.list[0]}–${g.list[g.list.length - 1]}-savollar</span></span><span class="p">${pc(v)}</span></div>`; }).join("") +
     `<span class="muted" style="font-size:.82em">Qism va umumiy foizlar savollar balliga mutanosib (qiyin savol ko‘proq hisobga olinadi).</span>`;
-  const sorted = rows.slice().sort((a, b) => b.score - a.score);
-  $("#stu").innerHTML = `<h2>O‘quvchilar</h2><div class="tablewrap"><table class="st"><thead><tr><th>#</th><th>O‘quvchi</th><th>Sinf</th><th>Ball</th><th>%</th><th>Vaqt</th><th>Sana</th></tr></thead><tbody>` +
-    sorted.map((r, i) => `<tr class="click" data-i="${i}"><td>${i + 1}</td><td>${esc(r.name)}${r.timeout ? ' <span class="tag" style="color:var(--warn)">vaqt tugagan</span>' : ""}</td><td>${esc(r.cls)}</td><td class="num">${fmt(r.score)}</td><td class="num">${Math.round(r.score / r.max * 100)}%</td><td class="num">${CHSB.mmss(r.seconds)}</td><td>${new Date(r.time || r.finished).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td></tr>
-      <tr hidden data-d="${i}"><td colspan="7"><div class="chips">${r.items.map(it => { const p = RQ[it.n] && RQ[it.n].problems && RQ[it.n].problems[it.p];
+  const sorted = rows.slice().sort((a, b) => b.score - a.score || tm(a) - tm(b));
+  $("#stu").innerHTML = `<h2>O‘quvchilar</h2><div class="tablewrap"><table class="st"><thead><tr><th>#</th><th>O‘quvchi</th><th>Sinf</th><th>Urinish</th><th>Ball</th>${subjAvg.map(x => `<th>${x.name}</th>`).join("")}<th>%</th><th>Vaqt</th><th>Sana</th></tr></thead><tbody>` +
+    sorted.map((r, i) => `<tr class="click" data-i="${i}"><td>${i + 1}</td><td>${esc(r.name)}${r.timeout ? ' <span class="tag" style="color:var(--warn)">vaqt tugagan</span>' : ""}</td><td>${esc(r.cls)}</td><td class="num">${r._att}/${r._cnt}</td><td class="num">${fmt(r.score)}</td>${CHSB.subjectScores(RQ, r.items).map(x => `<td class="num">${fmt(x.score)}</td>`).join("")}<td class="num">${Math.round(r.score / r.max * 100)}%</td><td class="num">${CHSB.mmss(r.seconds)}</td><td>${new Date(r.time || r.finished).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td></tr>
+      <tr hidden data-d="${i}"><td colspan="${8 + subjAvg.length}"><div class="chips">${r.items.map(it => { const p = RQ[it.n] && RQ[it.n].problems && RQ[it.n].problems[it.p];
         const right = p ? LET[p.answer] : "?"; const got = it.a === null ? "—" : LET[it.a];
         return `<span class="chip${it.ok ? "" : " bad"}" title="To‘g‘ri javob: ${right}">${it.n}: ${got}${it.ok ? "" : "→" + right}</span>`; }).join("")}</div></td></tr>`).join("") +
     `</tbody></table></div><span class="muted" style="font-size:.82em">Qatorni bosing: har savol bo‘yicha o‘quvchi javobi (xato bo‘lsa, → to‘g‘ri javob).</span>`;

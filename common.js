@@ -19,7 +19,7 @@
     if (!left) return fn();
     list.forEach(g => {
       const s = document.createElement("script");
-      s.src = C.GRADES[g].file + "?v=20261024b";
+      s.src = C.GRADES[g].file + "?v=20261026a";
       s.onload = () => { if (--left === 0) fn(); };
       s.onerror = () => { document.body.insertAdjacentHTML("afterbegin", '<div class="wrap"><div class="note bad">Ma’lumot yuklanmadi. Internetni tekshirib, sahifani yangilang.</div></div>'); };
       document.head.appendChild(s);
@@ -27,6 +27,24 @@
   };
   /* test nomidan sinfni aniqlash: 7-sinf testlari "7s-" bilan boshlanadi */
   C.gradeOfTest = t => (/^7s-/.test(String(t)) ? 7 : 6);
+  /* Qismlar: 6-sinf 5 tadan; 7-sinf algebra (1–12) va geometriya (13–20) alohida */
+  C.parts = function (g, Q) {
+    const n = Object.keys(Q).length;
+    if (C.grade(g) === 7) return [
+      { label: "Algebra", from: 1, to: 6 }, { label: "Algebra", from: 7, to: 12 },
+      { label: "Geometriya", from: 13, to: 16 }, { label: "Geometriya", from: 17, to: 20 }];
+    return Array.from({ length: Math.ceil(n / 5) }, (_, i) => ({ label: (i + 1) + "-qism", from: i * 5 + 1, to: Math.min(i * 5 + 5, n) }));
+  };
+  /* Fanlar bo'yicha ball: [{name, score, max}] (faqat 7-sinf) */
+  C.subjectScores = function (Q, items) {
+    const out = {};
+    items.forEach(it => {
+      const q = Q[it.n]; if (!q || !q.subject) return;
+      const s = out[q.subject] = out[q.subject] || { name: q.subject, score: 0, max: 0 };
+      s.max += q.ball; if (it.ok) s.score += q.ball;
+    });
+    return Object.values(out).map(s => ({ name: s.name, score: Math.round(s.score * 10) / 10, max: Math.round(s.max * 10) / 10 }));
+  };
   C.parseQs = function (s) {
     const out = [];
     String(s).split(",").forEach(part => {
