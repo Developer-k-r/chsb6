@@ -2,8 +2,8 @@
 (function () {
   const C = window.CHSB = window.CHSB || {};
   C._data = {};
-  C.GRADES = { 6: { file: "data.js", v: "CHSB_DATA" }, 7: { file: "data7.js", v: "CHSB_DATA7" } };
-  C.grade = g => (String(g) === "7" ? 7 : 6);
+  C.GRADES = { 6: { file: "data.js", v: "CHSB_DATA" }, 7: { file: "data7.js", v: "CHSB_DATA7" }, 9: { file: "data9.js", v: "CHSB_DATA9" } };
+  C.grade = g => ({ 7: 7, 9: 9 }[String(g)] || 6);
   C.load = function (g) {
     g = C.grade(g);
     if (C._data[g]) return C._data[g];
@@ -19,23 +19,24 @@
     if (!left) return fn();
     list.forEach(g => {
       const s = document.createElement("script");
-      s.src = C.GRADES[g].file + "?v=20261026a";
+      s.src = C.GRADES[g].file + "?v=20261027b";
       s.onload = () => { if (--left === 0) fn(); };
       s.onerror = () => { document.body.insertAdjacentHTML("afterbegin", '<div class="wrap"><div class="note bad">Ma’lumot yuklanmadi. Internetni tekshirib, sahifani yangilang.</div></div>'); };
       document.head.appendChild(s);
     });
   };
-  /* test nomidan sinfni aniqlash: 7-sinf testlari "7s-" bilan boshlanadi */
-  C.gradeOfTest = t => (/^7s-/.test(String(t)) ? 7 : 6);
-  /* Qismlar: 6-sinf 5 tadan; 7-sinf algebra (1–12) va geometriya (13–20) alohida */
+  /* test nomidan sinfni aniqlash: 7/9-sinf testlari "7s-"/"9s-" bilan boshlanadi */
+  C.gradeOfTest = t => { const m = String(t).match(/^(\d+)s-/); return C.grade(m ? m[1] : 6); };
+  C.testLabel = t => C.gradeOfTest(t) + "-sinf · " + (/^(\d+s-)?chsb\d+$/.test(t) ? "mashq testi" : C.esc(String(t).replace(/^\d+s-/, "")));
+  /* Qismlar: 6-sinf 5 tadan; 7- va 9-sinf algebra (1–12) va geometriya (13–20) alohida */
   C.parts = function (g, Q) {
     const n = Object.keys(Q).length;
-    if (C.grade(g) === 7) return [
+    if (C.grade(g) !== 6) return [
       { label: "Algebra", from: 1, to: 6 }, { label: "Algebra", from: 7, to: 12 },
       { label: "Geometriya", from: 13, to: 16 }, { label: "Geometriya", from: 17, to: 20 }];
     return Array.from({ length: Math.ceil(n / 5) }, (_, i) => ({ label: (i + 1) + "-qism", from: i * 5 + 1, to: Math.min(i * 5 + 5, n) }));
   };
-  /* Fanlar bo'yicha ball: [{name, score, max}] (faqat 7-sinf) */
+  /* Fanlar bo'yicha ball: [{name, score, max}] (7- va 9-sinf) */
   C.subjectScores = function (Q, items) {
     const out = {};
     items.forEach(it => {

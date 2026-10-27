@@ -6,7 +6,7 @@
 <title>CHSB-1 Onlayn Test</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
-<link rel="stylesheet" href="style.css?v=20261026a">
+<link rel="stylesheet" href="style.css?v=20261027b">
 <style>
 .top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:2px solid var(--line)}
 .top .in{max-width:860px;margin:0 auto;padding:8px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px));display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -33,8 +33,8 @@
 window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["\\[","\\]"]]},svg:{fontCache:"global"},startup:{typeset:false}};
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
-<script src="config.js?v=20261026a"></script>
-<script src="common.js?v=20261026a"></script>
+<script src="config.js?v=20261027b"></script>
+<script src="common.js?v=20261027b"></script>
 <script>
 (function(){
 const CFG = window.CHSB_CONFIG || {};
@@ -71,11 +71,11 @@ function welcome() {
   app.innerHTML = `<div class="wrap">
     <div><span class="eyebrow">Matematika · CHSB-1</span><h1>${esc(TITLE)}</h1></div>
     <div class="card">
-      <div class="row"><span class="tag">90 daqiqa</span><span class="tag">6-sinf: 25 savol · 40 ball</span><span class="tag">7-sinf: 20 savol · 80 ball</span></div>
+      <div class="row"><span class="tag">90 daqiqa</span><span class="tag">6-sinf: 25 savol · 40 ball</span><span class="tag">7-sinf: 20 savol · algebra 40 + geometriya 40 ball</span><span class="tag">9-sinf: 20 savol · algebra 40 + geometriya 40 ball</span></div>
       <p class="muted" style="margin:0">Har bir savolga bitta javobni belgilang. Javobni yakunlagunga qadar o‘zgartirish mumkin. Vaqt tugaganda test o‘zi yakunlanadi. Testni bir necha marta qayta ishlash mumkin, har safar savollar yangi tushadi.</p>
       <form id="f" class="row" autocomplete="off">
         <div class="field"><label for="nm">Ism va familiya</label><input id="nm" required maxlength="60" placeholder="Masalan: Aliyev Bekzod" value="${esc(ST.name || "")}"></div>
-        <div class="field" style="flex:0 1 120px"><label for="gr">Sinf</label><select id="gr" required><option value="">—</option><option ${g == 6 ? "selected" : ""}>6</option><option ${g == 7 ? "selected" : ""}>7</option></select></div>
+        <div class="field" style="flex:0 1 120px"><label for="gr">Sinf</label><select id="gr" required><option value="">—</option><option ${g == 6 ? "selected" : ""}>6</option><option ${g == 7 ? "selected" : ""}>7</option><option ${g == 9 ? "selected" : ""}>9</option></select></div>
         <div class="field" style="flex:0 1 110px"><label for="lt">Harfi</label><input id="lt" required maxlength="2" placeholder="A" value="${esc(l)}" style="text-transform:uppercase"></div>
         <button class="btn primary" style="align-self:flex-end">Testni boshlash</button>
       </form>
@@ -98,13 +98,14 @@ function newAttempt() {
     const picks = {};
     qs.forEach(n => { picks[n] = Math.floor(Math.random() * Q[n].problems.length); });
     ST.n = (ST.n || 0) + 1;
-    S = ST.cur = { id: CHSB.uid(), grade: GRADE, test: (GRADE === 7 ? "7s-" : "") + "chsb" + GRADE, name: ST.name, cls: GRADE + "-" + ST.letter,
-      attempt: ST.n, picks, answers: {}, cur: 0, started: Date.now(), submitted: false, sent: false };
-    save(); test(); scrollTo(0, 0);
+    S = ST.cur = { id: CHSB.uid(), grade: GRADE, test: (GRADE === 6 ? "" : GRADE + "s-") + "chsb" + GRADE, name: ST.name, cls: GRADE + "-" + ST.letter,
+      attempt: ST.n, picks, answers: {}, cur: 0, started: Date.now(), submitted: false, sent: false, startSent: false };
+    save(); sendStart(); test(); scrollTo(0, 0);
   });
 }
 
-function left() { return LIMIT - Math.floor((Date.now() - S.started) / 1000); }
+function left() {
+  if (S && !S.startSent && !S.submitted) sendStart(); return LIMIT - Math.floor((Date.now() - S.started) / 1000); }
 
 function test() {
   const n = qs[S.cur], p = Q[n].problems[S.picks[n]], a = S.answers[n];
@@ -173,15 +174,44 @@ function submit(timeout) {
   if (tick) clearInterval(tick);
   const g = grade();
   S.submitted = true; S.timeout = !!timeout;
-  S.finished = Date.now();
+  const end = S.started + LIMIT * 1000;
+  /* vaqt tugagan bo'lsa, yakun vaqti — 90-daqiqa oxiri (sahifa keyinroq ochilgan bo'lsa ham) */
+  S.finished = timeout ? Math.min(Date.now(), end) : Date.now();
   S.result = g; save();
   result();
 }
 
+let sending = false, retryT = null, tries = 0;
+function resultPayload() {
+  return { id: S.id, test: S.test, name: S.name, cls: S.cls, attempt: S.attempt, started: S.started, finished: S.finished,
+    seconds: Math.min(LIMIT, Math.round((S.finished - S.started) / 1000)), score: S.result.score, max: MAX, items: S.result.items, timeout: S.timeout };
+}
+/* "boshladi" yozuvi: o'qituvchi tugatmay chiqib ketganlarni ko'radi (id oxirida "-S", javoblar bo'sh) */
+function startPayload() {
+  return { id: S.id + "-S", test: S.test, name: S.name, cls: S.cls, attempt: S.attempt, started: S.started, finished: S.started,
+    seconds: 0, score: 0, max: MAX, items: [], timeout: false };
+}
+let startTry = 0;
+function sendStart() {
+  if (!CFG.endpoint || !S || S.startSent || Date.now() - startTry < 30000) return;
+  startTry = Date.now();
+  fetch(CFG.endpoint, { method: "POST", mode: "no-cors", keepalive: true, body: JSON.stringify(startPayload()) })
+    .then(() => { S.startSent = true; save(); }).catch(() => {});
+}
+/* sahifa yopilayotganda: yuborilmagan narsani brauzer o'zi yetkazadi */
+function beacon() {
+  if (!CFG.endpoint || !S || !navigator.sendBeacon) return;
+  try {
+    if (!S.startSent) navigator.sendBeacon(CFG.endpoint, new Blob([JSON.stringify(startPayload())], { type: "text/plain" }));
+    if (S.submitted && !S.sent) navigator.sendBeacon(CFG.endpoint, new Blob([JSON.stringify(resultPayload())], { type: "text/plain" }));
+  } catch (e) {}
+}
+addEventListener("pagehide", beacon);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") beacon(); });
 async function send() {
-  if (!CFG.endpoint || S.sent) return;
-  const payload = { id: S.id, test: S.test, name: S.name, cls: S.cls, started: S.started, finished: S.finished,
-    seconds: Math.round((S.finished - S.started) / 1000), score: S.result.score, max: MAX, items: S.result.items, timeout: S.timeout };
+  if (!CFG.endpoint || S.sent || sending) return;
+  sending = true;
+  const payload = resultPayload();
   setSend("sending");
   try {
     const r = await fetch(CFG.endpoint, { method: "POST", body: JSON.stringify(payload) });
@@ -192,8 +222,13 @@ async function send() {
     try {
       await fetch(CFG.endpoint, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
       S.sent = true; save(); setSend("ok");
-    } catch (e2) { setSend("fail"); }
+    } catch (e2) {
+      /* o'zi qayta urinadi: 5, 10, 20, 40, 60 soniyadan keyin */
+      setSend("fail");
+      if (tries < 5) { const d = [5, 10, 20, 40, 60][tries++] * 1000; clearTimeout(retryT); retryT = setTimeout(send, d); }
+    }
   }
+  sending = false;
 }
 function setSend(st) {
   const el = document.getElementById("snd"); if (!el) return;
@@ -201,22 +236,26 @@ function setSend(st) {
   if (st === "ok") { el.className = "note ok"; el.textContent = "Natija o‘qituvchiga yuborildi."; }
   if (st === "fail") {
     el.className = "note bad";
-    el.innerHTML = `Natija yuborilmadi: internet aloqasini tekshiring. <button class="btn" id="rs">Qayta yuborish</button>`;
-    el.querySelector("#rs").onclick = send;
+    el.innerHTML = `Natija hali yuborilmadi: internet aloqasini tekshiring. Sahifa o‘zi qayta urinadi. <button class="btn" id="rs">Hozir qayta yuborish</button>`;
+    el.querySelector("#rs").onclick = () => { tries = 0; send(); };
   }
 }
 
 function result(openN) {
   const g = S.result, pc = Math.round(g.score / MAX * 100);
   const nOk = g.items.filter(i => i.ok).length;
+  const subj = CHSB.subjectScores(Q, g.items);
   app.innerHTML = `<div class="wrap">
     <div><span class="eyebrow">${esc(TITLE)} · ${S.attempt || 1}-urinish</span><h1>${esc(S.name)} · ${esc(S.cls)}</h1></div>
     <div class="card">
       ${S.timeout ? `<div class="note">Vaqt tugadi, test avtomatik yakunlandi.</div>` : ""}
-      <div class="row" style="align-items:baseline"><span class="score">${String(g.score).replace(".", ",")}</span><span class="muted">/ ${String(MAX).replace(".", ",")} ball · ${pc}%</span></div>
-      <div class="bar"><i style="width:${pc}%"></i></div>
+      ${subj.length ? subj.map(x => { const p = Math.round(x.score / x.max * 100);
+        return `<div style="display:flex;flex-direction:column;gap:6px"><span class="eyebrow">${x.name}</span>
+          <div class="row" style="align-items:baseline"><span class="score">${String(x.score).replace(".", ",")}</span><span class="muted">/ ${String(x.max).replace(".", ",")} ball · ${p}%</span></div>
+          <div class="bar"><i style="width:${p}%"></i></div></div>`; }).join("")
+      : `<div class="row" style="align-items:baseline"><span class="score">${String(g.score).replace(".", ",")}</span><span class="muted">/ ${String(MAX).replace(".", ",")} ball · ${pc}%</span></div>
+      <div class="bar"><i style="width:${pc}%"></i></div>`}
       <span>To‘g‘ri javoblar: <b>${nOk}</b> / ${qs.length}</span>
-      ${CHSB.subjectScores(Q, g.items).map(x => `<div class="row" style="justify-content:space-between;border-top:1.5px solid var(--line);padding-top:8px"><b>${x.name}</b><span class="mono"><b>${String(x.score).replace(".", ",")}</b> / ${String(x.max).replace(".", ",")} ball</span></div>`).join("")}
       <div id="snd" class="note">${CFG.endpoint ? (S.sent ? "Natija o‘qituvchiga yuborildi." : "…") : "Natija faqat shu qurilmada saqlandi."}</div>
       <div class="row"><button class="btn primary" id="again">Qayta urinish</button><button class="btn" id="other">Boshqa o‘quvchi</button></div>
       <span class="muted" style="font-size:.85em">Qayta urinishda har savoldan yangi masala tushadi.</span>

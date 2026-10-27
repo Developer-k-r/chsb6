@@ -6,7 +6,7 @@
 <title>CHSB-1 O‘qituvchi Paneli</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
-<link rel="stylesheet" href="style.css?v=20261026a">
+<link rel="stylesheet" href="style.css?v=20261027b">
 <style>
 .grid2{display:grid;align-items:start;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
@@ -41,7 +41,7 @@ table.st td.num{text-align:right;font-family:var(--f-mono)}
       <h2 id="h-link">O‘quvchilar uchun havola</h2>
       <div class="link" id="lnk"></div>
       <div class="row"><button class="btn primary" id="copy">Havolani nusxalash</button><a class="btn" id="open" target="_blank" rel="noopener">Ochib ko‘rish</a><span id="cmsg" class="muted"></span></div>
-      <span class="muted" style="font-size:.85em">Bitta havola ikkala sinf uchun. O‘quvchi ismi, sinfi (6 yoki 7) va harfini o‘zi tanlaydi. Vaqt — 90 daqiqa, savollar har safar bazadan tasodifiy tushadi, testni qayta ishlash mumkin.</span>
+      <span class="muted" style="font-size:.85em">Bitta havola barcha sinflar uchun. O‘quvchi ismi, sinfi (6, 7 yoki 9) va harfini o‘zi tanlaydi. Vaqt — 90 daqiqa, savollar har safar bazadan tasodifiy tushadi, testni qayta ishlash mumkin.</span>
     </section>
 
     <section class="card" aria-labelledby="h-res">
@@ -66,14 +66,15 @@ table.st td.num{text-align:right;font-family:var(--f-mono)}
     <section class="card" id="byp"></section>
   </div>
   <section class="card" id="stu" hidden></section>
+  <section class="card" id="unf" hidden></section>
 </div>
 
 <script>
 </script>
-<script src="config.js?v=20261026a"></script>
-<script src="common.js?v=20261026a"></script>
+<script src="config.js?v=20261027b"></script>
+<script src="common.js?v=20261027b"></script>
 <script>
-CHSB.boot([6, 7], function(){
+CHSB.boot([6, 7, 9], function(){
 let G = 6, Q = CHSB.load(6).questions, RQ = Q;
 const CFG = window.CHSB_CONFIG || {}, esc = CHSB.esc, LET = "ABCD";
 const $ = s => document.querySelector(s);
@@ -90,7 +91,8 @@ $("#copy").onclick = async () => {
 };
 
 /* ---------- natijalar ---------- */
-let ROWS = [];
+let ROWS = [], STARTS = [];
+const isStart = x => /-S$/.test(String(x.id));
 $("#key").value = ls.get("chsb-key") || "";
 if (!CFG.endpoint) $("#lmsg").textContent = "config.js da endpoint ko‘rsatilmagan.";
 $("#load").onclick = async () => {
@@ -101,20 +103,21 @@ $("#load").onclick = async () => {
     const r = await fetch(CFG.endpoint + "?key=" + encodeURIComponent(key));
     const j = await r.json();
     if (!j.ok) { $("#lmsg").textContent = j.error === "key" ? "Kalit noto‘g‘ri." : "Xato: " + (j.error || "noma’lum"); return; }
-    ROWS = j.rows.filter(x => x && x.items);
+    ROWS = j.rows.filter(x => x && !isStart(x) && Array.isArray(x.items) && x.items.length);
+    STARTS = j.rows.filter(x => x && isStart(x));
     $("#lmsg").textContent = `${ROWS.length} ta natija yuklandi.`;
     fillFilters(); render();
   } catch (e) { $("#lmsg").textContent = "Ulanib bo‘lmadi. Internet va skript manzilini tekshiring."; }
 };
 function fillFilters() {
-  const tests = [...new Set(ROWS.map(r => r.test))];
+  const tests = [...new Set(ROWS.concat(STARTS).map(r => r.test))];
   const last = ls.get("chsb-ft");
-  $("#ft").innerHTML = tests.map(t => `<option value="${esc(t)}" ${t === last ? "selected" : ""}>${CHSB.gradeOfTest(t)}-sinf · ${/^(7s-)?chsb[67]$/.test(t) ? "mashq testi" : esc(t.replace(/^7s-/, ""))}</option>`).join("");
+  $("#ft").innerHTML = tests.map(t => `<option value="${esc(t)}" ${t === last ? "selected" : ""}>${CHSB.testLabel(t)}</option>`).join("");
   fillCls();
 }
 function fillCls() {
   const t = $("#ft").value;
-  const cls = [...new Set(ROWS.filter(r => r.test === t).map(r => r.cls))].sort();
+  const cls = [...new Set(ROWS.concat(STARTS).filter(r => r.test === t).map(r => r.cls))].sort();
   $("#fc").innerHTML = `<option value="">Barcha sinflar</option>` + cls.map(c => `<option>${esc(c)}</option>`).join("");
 }
 $("#ft").onchange = () => { ls.set("chsb-ft", $("#ft").value); fillCls(); render(); };
@@ -148,9 +151,27 @@ function stats(rows) {
 const cls3 = v => v === null ? "" : v < 50 ? "lo" : v < 75 ? "mid" : "hi";
 const pc = v => v === null ? "—" : Math.round(v) + "%";
 
+/* boshlagan, lekin natijasi kelmagan urinishlar */
+function renderUnfinished(t, c) {
+  const done = new Set(ROWS.map(r => String(r.id)));
+  const now = Date.now();
+  const list = STARTS.filter(s => s.test === t && (!c || s.cls === c) && !done.has(String(s.id).replace(/-S$/, "")))
+    .sort((a, b) => tm(b) - tm(a));
+  const box = $("#unf");
+  box.hidden = !list.length;
+  if (!list.length) return;
+  box.innerHTML = `<h2>Boshlagan, lekin yakunlamagan</h2>
+    <span class="muted" style="font-size:.85em">Testni boshlagan, ammo natijasi kelmagan urinishlar. 90 daqiqadan oshganlari — tashlab ketilgan; o‘quvchi sahifani qayta ochsa, natija o‘zi yuboriladi va bu ro‘yxatdan chiqadi.</span>
+    <div class="tablewrap"><table class="st"><thead><tr><th>O‘quvchi</th><th>Sinf</th><th>Boshlagan</th><th>Holat</th></tr></thead><tbody>` +
+    list.map(s => { const going = now - tm(s) < 90 * 60 * 1000;
+      return `<tr><td>${esc(s.name)}</td><td>${esc(s.cls)}</td><td>${new Date(tm(s)).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
+        <td><span class="tag" style="color:${going ? "var(--accent)" : "var(--bad)"}">${going ? "hozir yechmoqda" : "yakunlamagan"}</span></td></tr>`; }).join("") +
+    `</tbody></table></div>`;
+}
 function render() {
   const t = $("#ft").value, c = $("#fc").value;
   RQ = CHSB.load(CHSB.gradeOfTest(t)).questions;
+  renderUnfinished(t, c);
   const rows = pickAttempts(ROWS.filter(r => r.test === t && (!c || r.cls === c)));
   ["#sum", "#bys", "#stu"].forEach(s => $(s).hidden = !rows.length);
   if (!rows.length) return;
@@ -160,10 +181,10 @@ function render() {
   const subj = rows.map(r => CHSB.subjectScores(RQ, r.items));
   const subjAvg = (subj[0] || []).map((x, k) => ({ name: x.name, max: x.max, avg: subj.reduce((a, s) => a + ((s[k] && s[k].score) || 0), 0) / rows.length }));
   const hard = qsAll.filter(n => qp(n) !== null).sort((a, b) => qp(a) - qp(b)).slice(0, 5);
-  $("#sum").innerHTML = `<h2>${CHSB.gradeOfTest(t)}-sinf · ${/^(7s-)?chsb[67]$/.test(t) ? "mashq testi" : esc(t.replace(/^7s-/, ""))}${c ? " · " + esc(c) : ""}</h2>
+  $("#sum").innerHTML = `<h2>${CHSB.testLabel(t)}${c ? " · " + esc(c) : ""}</h2>
     <div class="stats">
       <div class="stat"><b>${new Set(rows.map(who)).size}</b><span>qatnashgan o‘quvchi${$("#fa").value === "all" ? " · " + rows.length + " urinish" : ""}</span></div>
-      <div class="stat"><b>${fmt(Math.round(avg * 10) / 10)}</b><span>o‘rtacha ball / ${fmt(max)}</span></div>
+      ${subjAvg.length ? "" : `<div class="stat"><b>${fmt(Math.round(avg * 10) / 10)}</b><span>o‘rtacha ball / ${fmt(max)}</span></div>`}
       <div class="stat"><b>${pc(wp(qsAll))}</b><span>umumiy o‘zlashtirish</span></div>
       <div class="stat"><b>${rows.filter(r => r.score / r.max >= .6).length}</b><span>60% va undan yuqori</span></div>
       ${subjAvg.map(x => `<div class="stat"><b>${fmt(Math.round(x.avg * 10) / 10)}</b><span>${x.name}: o‘rtacha ball / ${fmt(x.max)}</span></div>`).join("")}
@@ -179,9 +200,9 @@ function render() {
     return `<div class="qrow" style="grid-template-columns:6.5em minmax(0,1fr) 3.4em"><span class="n" style="font-family:var(--f-body)">${g.strong ? "<b>" + g.name + "</b>" : g.name}</span><span><span class="bar"><i class="${cls3(v)}" style="width:${v || 0}%"></i></span><span class="t">${g.list[0]}–${g.list[g.list.length - 1]}-savollar</span></span><span class="p">${pc(v)}</span></div>`; }).join("") +
     `<span class="muted" style="font-size:.82em">Qism va umumiy foizlar savollar balliga mutanosib (qiyin savol ko‘proq hisobga olinadi).</span>`;
   const sorted = rows.slice().sort((a, b) => b.score - a.score || tm(a) - tm(b));
-  $("#stu").innerHTML = `<h2>O‘quvchilar</h2><div class="tablewrap"><table class="st"><thead><tr><th>#</th><th>O‘quvchi</th><th>Sinf</th><th>Urinish</th><th>Ball</th>${subjAvg.map(x => `<th>${x.name}</th>`).join("")}<th>%</th><th>Vaqt</th><th>Sana</th></tr></thead><tbody>` +
-    sorted.map((r, i) => `<tr class="click" data-i="${i}"><td>${i + 1}</td><td>${esc(r.name)}${r.timeout ? ' <span class="tag" style="color:var(--warn)">vaqt tugagan</span>' : ""}</td><td>${esc(r.cls)}</td><td class="num">${r._att}/${r._cnt}</td><td class="num">${fmt(r.score)}</td>${CHSB.subjectScores(RQ, r.items).map(x => `<td class="num">${fmt(x.score)}</td>`).join("")}<td class="num">${Math.round(r.score / r.max * 100)}%</td><td class="num">${CHSB.mmss(r.seconds)}</td><td>${new Date(r.time || r.finished).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td></tr>
-      <tr hidden data-d="${i}"><td colspan="${8 + subjAvg.length}"><div class="chips">${r.items.map(it => { const p = RQ[it.n] && RQ[it.n].problems && RQ[it.n].problems[it.p];
+  $("#stu").innerHTML = `<h2>O‘quvchilar</h2><div class="tablewrap"><table class="st"><thead><tr><th>#</th><th>O‘quvchi</th><th>Sinf</th><th>Urinish</th>${subjAvg.length ? subjAvg.map(x => `<th>${x.name} (${fmt(x.max)})</th>`).join("") : "<th>Ball</th><th>%</th>"}<th>Vaqt</th><th>Sana</th></tr></thead><tbody>` +
+    sorted.map((r, i) => `<tr class="click" data-i="${i}"><td>${i + 1}</td><td>${esc(r.name)}${r.timeout ? ' <span class="tag" style="color:var(--warn)">vaqt tugagan</span>' : ""}</td><td>${esc(r.cls)}</td><td class="num">${r._att}/${r._cnt}</td>${subjAvg.length ? CHSB.subjectScores(RQ, r.items).map(x => `<td class="num">${fmt(x.score)}</td>`).join("") : `<td class="num">${fmt(r.score)}</td><td class="num">${Math.round(r.score / r.max * 100)}%</td>`}<td class="num">${CHSB.mmss(Math.min(r.seconds, 90 * 60))}</td><td>${new Date(r.time || r.finished).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td></tr>
+      <tr hidden data-d="${i}"><td colspan="${subjAvg.length ? 6 + subjAvg.length : 8}"><div class="chips">${r.items.map(it => { const p = RQ[it.n] && RQ[it.n].problems && RQ[it.n].problems[it.p];
         const right = p ? LET[p.answer] : "?"; const got = it.a === null ? "—" : LET[it.a];
         return `<span class="chip${it.ok ? "" : " bad"}" title="To‘g‘ri javob: ${right}">${it.n}: ${got}${it.ok ? "" : "→" + right}</span>`; }).join("")}</div></td></tr>`).join("") +
     `</tbody></table></div><span class="muted" style="font-size:.82em">Qatorni bosing: har savol bo‘yicha o‘quvchi javobi (xato bo‘lsa, → to‘g‘ri javob).</span>`;
