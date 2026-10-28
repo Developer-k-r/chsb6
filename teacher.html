@@ -6,7 +6,7 @@
 <title>CHSB-1 O‘qituvchi Paneli</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
-<link rel="stylesheet" href="style.css?v=20261027b">
+<link rel="stylesheet" href="style.css?v=20261028a">
 <style>
 .grid2{display:grid;align-items:start;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
@@ -41,7 +41,7 @@ table.st td.num{text-align:right;font-family:var(--f-mono)}
       <h2 id="h-link">O‘quvchilar uchun havola</h2>
       <div class="link" id="lnk"></div>
       <div class="row"><button class="btn primary" id="copy">Havolani nusxalash</button><a class="btn" id="open" target="_blank" rel="noopener">Ochib ko‘rish</a><span id="cmsg" class="muted"></span></div>
-      <span class="muted" style="font-size:.85em">Bitta havola barcha sinflar uchun. O‘quvchi ismi, sinfi (6, 7 yoki 9) va harfini o‘zi tanlaydi. Vaqt — 90 daqiqa, savollar har safar bazadan tasodifiy tushadi, testni qayta ishlash mumkin.</span>
+      <span class="muted" style="font-size:.85em">Bitta havola barcha sinflar uchun. O‘quvchi ismi, sinfi (6, 7, 9 yoki 10) va harfini o‘zi tanlaydi. Vaqt — 90 daqiqa, savollar har safar bazadan tasodifiy tushadi, testni qayta ishlash mumkin.</span>
     </section>
 
     <section class="card" aria-labelledby="h-res">
@@ -71,10 +71,10 @@ table.st td.num{text-align:right;font-family:var(--f-mono)}
 
 <script>
 </script>
-<script src="config.js?v=20261027b"></script>
-<script src="common.js?v=20261027b"></script>
+<script src="config.js?v=20261028a"></script>
+<script src="common.js?v=20261028a"></script>
 <script>
-CHSB.boot([6, 7, 9], function(){
+CHSB.boot([6, 7, 9, 10], function(){
 let G = 6, Q = CHSB.load(6).questions, RQ = Q;
 const CFG = window.CHSB_CONFIG || {}, esc = CHSB.esc, LET = "ABCD";
 const $ = s => document.querySelector(s);
